@@ -113,13 +113,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error(f"Could not find entry data for {entity_id}")
                 return
                 
-            # Update the countdown value
+            # Update the countdown value in storage
             entry_data["data"]["days_remaining"] = int(interval_days)
             entry_data["data"]["last_updated"] = datetime.now().isoformat()
             await entry_data["store"].async_save(entry_data["data"])
             
-            # Update the entity state
-            hass.states.async_set(entity_id, int(interval_days))
+            # Call the number.set_value service instead to preserve all entity functionality
+            await hass.services.async_call(
+                "number",
+                "set_value",
+                {
+                    "entity_id": entity_id,
+                    "value": int(interval_days)
+                }
+            )
             
             _LOGGER.info(f"Reset countdown {entity_id} to {interval_days} days")
             
