@@ -1,0 +1,11 @@
+reset_reminder:
+  description: "Setzt eine Countdown-Erinnerung auf ihren Interval-Wert zurück"
+  fields:
+    entity_id:
+      description: "Die Entity-ID der Countdown-Erinnerung (muss mit '_countdown' enden)"
+      example: "number.recurring_reminders_blume_giessen_countdown"
+      required: true
+      selector:
+        entity:
+          domain: number
+          integration: recurring_reminders

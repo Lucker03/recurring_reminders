@@ -74,6 +74,66 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from homeassistant.helpers.event import async_track_time_change
     async_track_time_change(hass, midnight_countdown_update, hour=0, minute=0, second=0)
     
+    async def reset_reminder(call: ServiceCall) -> None:
+        """Reset a countdown to its interval value."""
+        entity_id = call.data.get("entity_id")
+        
+        if not entity_id:
+            _LOGGER.error("No entity_id provided for reset_reminder service")
+            return
+            
+        # Check if it's a countdown entity
+        if not entity_id.endswith("_countdown"):
+            _LOGGER.error(f"Entity {entity_id} is not a countdown entity")
+            return
+            
+        # Get the entity state to retrieve attributes
+        state = hass.states.get(entity_id)
+        if not state:
+            _LOGGER.error(f"Entity {entity_id} not found")
+            return
+            
+        # Get the interval_days from attributes
+        interval_days = state.attributes.get("interval_days")
+        if interval_days is None:
+            _LOGGER.error(f"No interval_days attribute found for {entity_id}")
+            return
+            
+        try:
+            # Find the corresponding entry_data
+            entry_data = None
+            reminder_name = state.attributes.get("reminder_name")
+            
+            for entry_id, data in hass.data[DOMAIN].items():
+                if data.get("config", {}).get("name") == reminder_name:
+                    entry_data = data
+                    break
+                    
+            if not entry_data:
+                _LOGGER.error(f"Could not find entry data for {entity_id}")
+                return
+                
+            # Update the countdown value
+            entry_data["data"]["days_remaining"] = int(interval_days)
+            entry_data["data"]["last_updated"] = datetime.now().isoformat()
+            await entry_data["store"].async_save(entry_data["data"])
+            
+            # Update the entity state
+            hass.states.async_set(entity_id, int(interval_days))
+            
+            _LOGGER.info(f"Reset countdown {entity_id} to {interval_days} days")
+            
+        except Exception as e:
+            _LOGGER.error(f"Error resetting reminder {entity_id}: {e}")
+    
+    # Register the service
+    hass.services.async_register(
+        DOMAIN,
+        "reset_reminder", 
+        reset_reminder,
+        schema=None  # We'll validate manually in the function
+    )
+    
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
