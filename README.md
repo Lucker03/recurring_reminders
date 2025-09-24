@@ -11,7 +11,7 @@ _Integration to manage recurring reminders and tasks in Home Assistant._
 
 Platform | Description
 -- | --
-`sensor` | Show interval and countdown for recurring reminders.
+`number` | Editable interval and countdown for recurring reminders.
 
 ## Features
 
@@ -19,9 +19,7 @@ Platform | Description
 - **Two Sensors per Reminder**:
   - **Interval Sensor**: Shows the configured interval in days
   - **Countdown Sensor**: Counts down the days until the next reminder
-- **Services for Interaction**:
-  - `recurring_reminders.reset_reminder`: Reset the countdown
-  - `recurring_reminders.set_reminder_days`: Set countdown to a custom value
+- **Direct Editing**: Change values directly in Home Assistant UI with sliders or input boxes
 
 ## Installation
 
@@ -53,33 +51,24 @@ When adding a new reminder, you will be asked for:
 
 ## Usage
 
-### Sensors
+### Number Entities
 
-For each reminder, two sensors are created:
+For each reminder, two editable number entities are created:
 
-1. `sensor.recurring_reminders_[name]_interval` - Shows the interval
-2. `sensor.recurring_reminders_[name]_countdown` - Shows remaining days
+1. `number.recurring_reminders_[name]_interval` - Set the interval (directly editable)
+2. `number.recurring_reminders_[name]_countdown` - Set remaining days (directly editable)
 
-### Services
+### Editing Values
 
-#### reset_reminder
-Resets a reminder's countdown to the original interval.
+Simply click on the entity in Home Assistant and change the value:
+- Use sliders for quick adjustments
+- Use input boxes for precise values
+- Changes are applied immediately
 
-```yaml
-service: recurring_reminders.reset_reminder
-data:
-  entity_id: sensor.recurring_reminders_vacuum_hallway_countdown
-```
-
-#### set_reminder_days
-Sets the countdown to a custom value.
-
-```yaml
-service: recurring_reminders.set_reminder_days
-data:
-  entity_id: sensor.recurring_reminders_vacuum_hallway_countdown
-  days: 3
-```
+**Examples:**
+- Change interval from 7 to 14 days: Click on interval entity → Set to 14
+- Reset countdown: Click on countdown entity → Set to same value as interval
+- Set custom countdown: Click on countdown entity → Set to desired days
 
 ### Automations
 
@@ -90,7 +79,7 @@ automation:
   - alias: "Reminder: Vacuum hallway"
     trigger:
       - platform: state
-        entity_id: sensor.recurring_reminders_vacuum_hallway_countdown
+        entity_id: number.recurring_reminders_vacuum_hallway_countdown
         to: "0"
     action:
       - service: notify.mobile_app_your_phone
@@ -105,10 +94,13 @@ automation:
 type: entities
 title: Household Reminders
 entities:
-  - entity: sensor.recurring_reminders_vacuum_hallway_countdown
+  - entity: number.recurring_reminders_vacuum_hallway_countdown
     name: Vacuum hallway
     icon: mdi:vacuum
-  - entity: sensor.recurring_reminders_clean_bathroom_countdown
+  - entity: number.recurring_reminders_vacuum_hallway_interval
+    name: Vacuum interval
+    icon: mdi:calendar-clock
+  - entity: number.recurring_reminders_clean_bathroom_countdown
     name: Clean bathroom
     icon: mdi:spray-bottle
 ```
@@ -117,8 +109,9 @@ entities:
 
 - The countdown is automatically reduced by 1 daily
 - When it reaches 0, the value stays at 0
-- The `reset_reminder` service resets the value back to the original interval
-- The `set_reminder_days` service allows manual adjustments for exceptions
+- Simply click on the countdown entity to reset or adjust the value
+- Click on the interval entity to change the recurring interval
+- All changes are applied immediately through the Home Assistant UI
 
 ## Contributions are welcome!
 

@@ -1,7 +1,7 @@
-"""Sensor platform for Recurring Reminders integration."""
+"""Number platform for Recurring Reminders integration."""
 import logging
 from datetime import datetime
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -16,31 +16,35 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the sensor platform."""
+    """Set up the number platform."""
     
     entry_data = hass.data[DOMAIN][config_entry.entry_id]
     config = entry_data["config"]
     
-    # Create both sensors for this reminder
-    sensors = [
-        ReminderIntervalSensor(config_entry, config),
-        ReminderCountdownSensor(config_entry, config, entry_data)
+    # Create both number entities for this reminder
+    numbers = [
+        ReminderIntervalNumber(config_entry, config, entry_data),
+        ReminderCountdownNumber(config_entry, config, entry_data)
     ]
     
-    async_add_entities(sensors, True)
+    async_add_entities(numbers, True)
 
-class ReminderIntervalSensor(SensorEntity):
-    """Sensor showing the interval in days."""
+class ReminderIntervalNumber(NumberEntity):
+    """Number entity for the interval in days (editable)."""
     
-    def __init__(self, config_entry: ConfigEntry, config: dict) -> None:
-        """Initialize the sensor."""
+    def __init__(self, config_entry: ConfigEntry, config: dict, entry_data: dict) -> None:
+        """Initialize the number entity."""
         self._config_entry = config_entry
         self._config = config
+        self._entry_data = entry_data
         self._attr_name = f"{config['name']} Intervall"
         self._attr_unique_id = f"{config_entry.entry_id}_interval"
         self._attr_native_unit_of_measurement = "Tage"
         self._attr_icon = "mdi:calendar-clock"
-        self._attr_state_class = None
+        self._attr_mode = NumberMode.BOX
+        self._attr_native_min_value = 1
+        self._attr_native_max_value = 365
+        self._attr_native_step = 1
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -50,13 +54,32 @@ class ReminderIntervalSensor(SensorEntity):
             name=f"Erinnerung: {self._config['name']}",
             manufacturer="Recurring Reminders",
             model="Reminder",
-            sw_version="1.0.0",
+            sw_version="1.1.0",
         )
 
     @property
     def native_value(self) -> int:
-        """Return the state of the sensor."""
+        """Return the current interval value."""
         return self._config["interval"]
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update the interval value."""
+        new_interval = int(value)
+        old_interval = self._config["interval"]
+        
+        # Update config
+        self._config["interval"] = new_interval
+        
+        # Update the config entry in Home Assistant
+        self.hass.config_entries.async_update_entry(
+            self._config_entry,
+            data={**self._config_entry.data, "interval": new_interval}
+        )
+        
+        _LOGGER.info(f"Updated interval for '{self._config['name']}' from {old_interval} to {new_interval}")
+        
+        # Update the state
+        self.async_write_ha_state()
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -66,11 +89,11 @@ class ReminderIntervalSensor(SensorEntity):
             "interval_days": self._config["interval"]
         }
 
-class ReminderCountdownSensor(SensorEntity):
-    """Sensor showing days remaining until next reminder."""
+class ReminderCountdownNumber(NumberEntity):
+    """Number entity for days remaining until next reminder (editable)."""
     
     def __init__(self, config_entry: ConfigEntry, config: dict, entry_data: dict) -> None:
-        """Initialize the sensor."""
+        """Initialize the number entity."""
         self._config_entry = config_entry
         self._config = config
         self._entry_data = entry_data
@@ -78,7 +101,10 @@ class ReminderCountdownSensor(SensorEntity):
         self._attr_unique_id = f"{config_entry.entry_id}_countdown"
         self._attr_native_unit_of_measurement = "Tage"
         self._attr_icon = "mdi:timer-sand"
-        self._attr_state_class = None
+        self._attr_mode = NumberMode.BOX
+        self._attr_native_min_value = 0
+        self._attr_native_max_value = 365
+        self._attr_native_step = 1
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -88,13 +114,29 @@ class ReminderCountdownSensor(SensorEntity):
             name=f"Erinnerung: {self._config['name']}",
             manufacturer="Recurring Reminders",
             model="Reminder",
-            sw_version="1.0.0",
+            sw_version="1.1.0",
         )
 
     @property
     def native_value(self) -> int:
-        """Return the state of the sensor."""
+        """Return the current countdown value."""
         return self._entry_data["data"]["days_remaining"]
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update the countdown value."""
+        new_days = int(value)
+        
+        # Update data
+        self._entry_data["data"]["days_remaining"] = new_days
+        self._entry_data["data"]["last_updated"] = datetime.now().isoformat()
+        
+        # Save to storage
+        await self._entry_data["store"].async_save(self._entry_data["data"])
+        
+        _LOGGER.info(f"Manually set countdown for '{self._config['name']}' to {new_days} days")
+        
+        # Update the state
+        self.async_write_ha_state()
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -117,7 +159,7 @@ class ReminderCountdownSensor(SensorEntity):
             return "mdi:timer-sand"
 
     async def async_update(self) -> None:
-        """Update the sensor state."""
+        """Update the countdown state."""
         # Check if we need to update based on time passed
         try:
             last_updated = datetime.fromisoformat(self._entry_data["data"]["last_updated"])
@@ -128,9 +170,11 @@ class ReminderCountdownSensor(SensorEntity):
                 current_days = self._entry_data["data"]["days_remaining"]
                 new_days = max(0, current_days - days_passed)
                 
-                self._entry_data["data"]["days_remaining"] = new_days
-                self._entry_data["data"]["last_updated"] = now.isoformat()
-                await self._entry_data["store"].async_save(self._entry_data["data"])
+                if new_days != current_days:
+                    self._entry_data["data"]["days_remaining"] = new_days
+                    self._entry_data["data"]["last_updated"] = now.isoformat()
+                    await self._entry_data["store"].async_save(self._entry_data["data"])
+                    _LOGGER.info(f"Auto-updated countdown for '{self._config['name']}' to {new_days} days")
                 
         except Exception as e:
-            _LOGGER.error(f"Error updating countdown sensor: {e}")
+            _LOGGER.error(f"Error updating countdown: {e}")
