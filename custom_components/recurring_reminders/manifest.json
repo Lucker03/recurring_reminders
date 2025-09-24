@@ -1,0 +1,14 @@
+{
+    "domain": "recurring_reminders",
+    "name": "Recurring Reminders",
+    "codeowners": ["@yourusername"],
+    "config_flow": true,
+    "dependencies": [],
+    "documentation": "https://github.com/yourusername/recurring_reminders",
+    "integration_type": "device",
+    "iot_class": "local_polling",
+    "issue_tracker": "https://github.com/yourusername/recurring_reminders/issues",
+    "quality_scale": "silver",
+    "requirements": [],
+    "version": "1.0.0"
+}
