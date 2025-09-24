@@ -45,6 +45,8 @@ class ReminderIntervalNumber(NumberEntity):
         # Create entity_id based on name (not friendly_name)
         name_normalized = config["name"].lower().replace(" ", "_").replace("-", "_")
         self._attr_unique_id = f"recurring_reminders_{name_normalized}_interval"
+        # Set the entity_id explicitly
+        self.entity_id = f"number.recurring_reminders_{name_normalized}_interval"
         
         self._attr_native_unit_of_measurement = "Tage"
         self._attr_icon = "mdi:calendar-clock"
@@ -120,6 +122,8 @@ class ReminderCountdownNumber(NumberEntity):
         # Create entity_id based on name (not friendly_name) - this creates the requested format
         name_normalized = config["name"].lower().replace(" ", "_").replace("-", "_")
         self._attr_unique_id = f"recurring_reminders_{name_normalized}_countdown"
+        # Set the entity_id explicitly to ensure the correct format
+        self.entity_id = f"number.recurring_reminders_{name_normalized}_countdown"
         
         self._attr_native_unit_of_measurement = "Tage"
         # Use custom icon if provided, otherwise use default with dynamic behavior
