@@ -153,21 +153,49 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error("entity_id and interval are required for set_reminder_interval service")
             return
         
+        # Normalize entity_id - handle both full and shortened versions
+        if not entity_id.startswith("sensor."):
+            entity_id = f"sensor.{entity_id}"
+        
+        # Check if it's a recurring_reminders sensor
+        if not "recurring_reminders" in entity_id:
+            # Try to find matching reminder by name
+            possible_matches = []
+            for entry_id, entry_data in hass.data[DOMAIN].items():
+                reminder_name = entry_data["config"]["name"].lower().replace(" ", "_")
+                if reminder_name in entity_id.lower():
+                    possible_matches.append((entry_id, entry_data, reminder_name))
+            
+            if len(possible_matches) == 1:
+                target_entry, entry_data, reminder_name = possible_matches[0]
+                entity_id = f"sensor.recurring_reminders_{reminder_name}_intervall"
+            else:
+                _LOGGER.error(f"Could not find unique reminder for entity {entity_id}. Available reminders: {[data['config']['name'] for _, data in hass.data[DOMAIN].items()]}")
+                return
+        
         # Check if user provided countdown sensor instead of interval sensor
         if "_countdown" in entity_id:
-            _LOGGER.error(f"Invalid entity_id: {entity_id}. Please use the interval sensor (ending with '_intervall'), not the countdown sensor (ending with '_countdown')")
-            return
+            entity_id = entity_id.replace("_countdown", "_intervall")
+            _LOGGER.info(f"Switching to interval sensor: {entity_id}")
             
-        if not "_intervall" in entity_id:
-            _LOGGER.error(f"Invalid entity_id: {entity_id}. Please use the interval sensor ending with '_intervall'")
-            return
+        if not ("_intervall" in entity_id or "_interval" in entity_id):
+            # Try to append _intervall if not present
+            if entity_id.endswith("_countdown"):
+                entity_id = entity_id.replace("_countdown", "_intervall")
+            else:
+                entity_id = f"{entity_id}_intervall"
+            _LOGGER.info(f"Assuming interval sensor: {entity_id}")
             
         try:
-            name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_intervall", "")
+            # Extract name part more robustly
+            name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("sensor.", "")
+            name_part = name_part.replace("_intervall", "").replace("_interval", "")
+            
             target_entry = None
             
             for entry_id, entry_data in hass.data[DOMAIN].items():
-                if entry_data["config"]["name"].lower().replace(" ", "_") == name_part:
+                reminder_name = entry_data["config"]["name"].lower().replace(" ", "_")
+                if reminder_name == name_part or name_part in reminder_name or reminder_name in name_part:
                     target_entry = entry_id
                     break
             
@@ -184,16 +212,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     data={**config_entry.data, "interval": int(interval)}
                 )
                 
+                # Construct correct entity IDs
+                correct_name = entry_data["config"]["name"].lower().replace(" ", "_")
+                interval_entity = f"sensor.recurring_reminders_{correct_name}_intervall"
+                
                 # Update the interval sensor state
                 hass.states.async_set(
-                    entity_id,
+                    interval_entity,
                     int(interval),
                     {"old_interval": old_interval, "updated": datetime.now().isoformat()}
                 )
                 
-                _LOGGER.info(f"Updated interval for {entity_id} from {old_interval} to {interval}")
+                _LOGGER.info(f"Updated interval for {interval_entity} from {old_interval} to {interval}")
             else:
-                _LOGGER.error(f"Could not find reminder for entity {entity_id}")
+                _LOGGER.error(f"Could not find reminder for entity {entity_id}. Available reminders: {[data['config']['name'] for _, data in hass.data[DOMAIN].items()]}")
                 
         except Exception as e:
             _LOGGER.error(f"Error setting reminder interval: {e}")
