@@ -60,26 +60,33 @@ class ReminderIntervalNumber(NumberEntity):
     @property
     def native_value(self) -> int:
         """Return the current interval value."""
-        return self._config["interval"]
+        # Get the current value from the config entry to ensure it's up to date
+        return self._config_entry.data.get("interval", self._config["interval"])
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the interval value."""
         new_interval = int(value)
         old_interval = self._config["interval"]
         
-        # Update config
-        self._config["interval"] = new_interval
-        
-        # Update the config entry in Home Assistant
-        self.hass.config_entries.async_update_entry(
-            self._config_entry,
-            data={**self._config_entry.data, "interval": new_interval}
-        )
-        
-        _LOGGER.info(f"Updated interval for '{self._config['name']}' from {old_interval} to {new_interval}")
-        
-        # Update the state
-        self.async_write_ha_state()
+        try:
+            # Update the config entry in Home Assistant (this updates the source)
+            self.hass.config_entries.async_update_entry(
+                self._config_entry,
+                data={**self._config_entry.data, "interval": new_interval}
+            )
+            
+            # Update our local config reference
+            self._entry_data["config"] = {**self._config, "interval": new_interval}
+            self._config = self._entry_data["config"]
+            
+            _LOGGER.info(f"Updated interval for '{self._config['name']}' from {old_interval} to {new_interval}")
+            
+            # Update the state
+            self.async_write_ha_state()
+            
+        except Exception as e:
+            _LOGGER.error(f"Error updating interval: {e}")
+            raise
 
     @property
     def extra_state_attributes(self) -> dict:
