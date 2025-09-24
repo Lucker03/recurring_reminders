@@ -115,9 +115,8 @@ class ReminderCountdownNumber(NumberEntity):
         self._config = config
         self._entry_data = entry_data
         
-        # Use friendly_name if provided, otherwise use name
-        friendly_name = config.get("friendly_name", config["name"])
-        self._attr_name = f"{friendly_name} Countdown"
+        # Use friendly_name if provided, otherwise use name (without "Countdown" suffix)
+        self._attr_name = config.get("friendly_name", config["name"])
         
         # Create entity_id based on name (not friendly_name) - this creates the requested format
         name_normalized = config["name"].lower().replace(" ", "_").replace("-", "_")
@@ -169,9 +168,14 @@ class ReminderCountdownNumber(NumberEntity):
     @property
     def extra_state_attributes(self) -> dict:
         """Return extra state attributes."""
+        # Create interval entity_id for easy reference
+        name_normalized = self._config["name"].lower().replace(" ", "_").replace("-", "_")
+        interval_entity_id = f"number.recurring_reminders_{name_normalized}_interval"
+        
         return {
             "reminder_name": self._config["name"],
             "interval_days": self._config["interval"],
+            "interval_entity_id": interval_entity_id,
             "last_updated": self._entry_data["data"]["last_updated"],
             "is_due": self._entry_data["data"]["days_remaining"] == 0
         }
