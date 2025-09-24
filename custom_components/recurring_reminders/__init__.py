@@ -81,6 +81,27 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        # Clean up stored data
+        entry_data = hass.data[DOMAIN].pop(entry.entry_id, None)
+        if entry_data and "store" in entry_data:
+            # Optionally clean up storage file
+            try:
+                store = entry_data["store"]
+                # Note: We keep the storage file for potential future use
+                # To completely remove: await store.async_remove()
+                _LOGGER.info(f"Unloaded reminder: {entry_data['config']['name']}")
+            except Exception as e:
+                _LOGGER.error(f"Error during cleanup: {e}")
     
     return unload_ok
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove a config entry and clean up storage."""
+    entry_data = hass.data[DOMAIN].get(entry.entry_id)
+    if entry_data and "store" in entry_data:
+        try:
+            store = entry_data["store"]
+            await store.async_remove()
+            _LOGGER.info(f"Removed storage for reminder: {entry_data['config']['name']}")
+        except Exception as e:
+            _LOGGER.error(f"Error removing storage: {e}")

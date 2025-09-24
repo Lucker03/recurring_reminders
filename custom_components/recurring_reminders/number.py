@@ -115,8 +115,9 @@ class ReminderCountdownNumber(NumberEntity):
         self._config = config
         self._entry_data = entry_data
         
-        # Use friendly_name if provided, otherwise use name (without "Countdown" suffix)
-        self._attr_name = config.get("friendly_name", config["name"])
+        # Store the display name for later use
+        self._display_name = config.get("friendly_name", config["name"])
+        # Don't set _attr_name here, use property instead
         
         # Create entity_id based on name (not friendly_name) - this creates the requested format
         name_normalized = config["name"].lower().replace(" ", "_").replace("-", "_")
@@ -143,6 +144,11 @@ class ReminderCountdownNumber(NumberEntity):
             model="Reminder",
             sw_version="2.1.0",
         )
+
+    @property
+    def name(self) -> str:
+        """Return the name of the entity."""
+        return self._display_name
 
     @property
     def native_value(self) -> int:
@@ -172,13 +178,16 @@ class ReminderCountdownNumber(NumberEntity):
         name_normalized = self._config["name"].lower().replace(" ", "_").replace("-", "_")
         interval_entity_id = f"number.recurring_reminders_{name_normalized}_interval"
         
-        return {
+        attributes = {
             "reminder_name": self._config["name"],
             "interval_days": self._config["interval"],
             "interval_entity_id": interval_entity_id,
             "last_updated": self._entry_data["data"]["last_updated"],
             "is_due": self._entry_data["data"]["days_remaining"] == 0
         }
+        
+        _LOGGER.debug(f"Countdown attributes for {self._config['name']}: {attributes}")
+        return attributes
 
     @property
     def icon(self) -> str:
