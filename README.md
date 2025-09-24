@@ -126,11 +126,11 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 
 ---
 
-[recurring_reminders]: https://github.com/yourusername/recurring_reminders
-[commits-shield]: https://img.shields.io/github/commit-activity/y/yourusername/recurring_reminders.svg?style=for-the-badge
-[commits]: https://github.com/yourusername/recurring_reminders/commits/main
+[recurring_reminders]: https://github.com/Lucker03/recurring_reminders
+[commits-shield]: https://img.shields.io/github/commit-activity/y/Lucker03/recurring_reminders.svg?style=for-the-badge
+[commits]: https://github.com/Lucker03/recurring_reminders/commits/main
 [hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[license-shield]: https://img.shields.io/github/license/yourusername/recurring_reminders.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/yourusername/recurring_reminders.svg?style=for-the-badge
-[releases]: https://github.com/yourusername/recurring_reminders/releases
+[license-shield]: https://img.shields.io/github/license/Lucker03/recurring_reminders.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/Lucker03/recurring_reminders.svg?style=for-the-badge
+[releases]: https://github.com/Lucker03/recurring_reminders/releases

@@ -23,4 +23,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic countdown updates at midnight
 - Visual indicators when reminders are due (bell icon)
 
-[1.0.0]: https://github.com/yourusername/recurring_reminders/releases/tag/v1.0.0
+[1.0.0]: https://github.com/Lucker03/recurring_reminders/releases/tag/v1.0.0

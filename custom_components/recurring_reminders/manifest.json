@@ -1,13 +1,13 @@
 {
     "domain": "recurring_reminders",
     "name": "Recurring Reminders",
-    "codeowners": ["@yourusername"],
+    "codeowners": ["@Lucker03"],
     "config_flow": true,
     "dependencies": [],
-    "documentation": "https://github.com/yourusername/recurring_reminders",
+    "documentation": "https://github.com/Lucker03/recurring_reminders",
     "integration_type": "device",
     "iot_class": "local_polling",
-    "issue_tracker": "https://github.com/yourusername/recurring_reminders/issues",
+    "issue_tracker": "https://github.com/Lucker03/recurring_reminders/issues",
     "quality_scale": "silver",
     "requirements": [],
     "version": "1.0.0"
