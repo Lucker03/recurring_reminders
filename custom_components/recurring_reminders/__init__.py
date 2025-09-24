@@ -49,11 +49,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not entity_id:
             _LOGGER.error("No entity_id provided for reset_reminder service")
             return
+        
+        # Support both countdown and interval sensors
+        is_countdown = "_countdown" in entity_id
+        is_interval = "_intervall" in entity_id
+        
+        if not is_countdown and not is_interval:
+            _LOGGER.error(f"Invalid entity_id: {entity_id}. Please use either countdown sensor (ending with '_countdown') or interval sensor (ending with '_intervall')")
+            return
             
         # Extract entry_id from entity_id
-        # Format: sensor.recurring_reminders_<name>_countdown
         try:
-            name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_countdown", "")
+            if is_countdown:
+                name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_countdown", "")
+                countdown_entity = entity_id
+            else:  # is_interval
+                name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_intervall", "")
+                countdown_entity = f"sensor.recurring_reminders_{name_part}_countdown"
+            
             target_entry = None
             
             for entry_id, entry_data in hass.data[DOMAIN].items():
@@ -67,13 +80,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry_data["data"]["last_updated"] = datetime.now().isoformat()
                 await entry_data["store"].async_save(entry_data["data"])
                 
-                # Update the sensor
+                # Update the countdown sensor
                 hass.states.async_set(
-                    entity_id,
+                    countdown_entity,
                     entry_data["data"]["days_remaining"],
                     {"last_reset": datetime.now().isoformat()}
                 )
-                _LOGGER.info(f"Reset reminder for {entity_id}")
+                _LOGGER.info(f"Reset reminder for {countdown_entity}")
             else:
                 _LOGGER.error(f"Could not find reminder for entity {entity_id}")
                 
@@ -88,9 +101,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not entity_id or days is None:
             _LOGGER.error("entity_id and days are required for set_reminder_days service")
             return
+        
+        # Support both countdown and interval sensors
+        is_countdown = "_countdown" in entity_id
+        is_interval = "_intervall" in entity_id
+        
+        if not is_countdown and not is_interval:
+            _LOGGER.error(f"Invalid entity_id: {entity_id}. Please use either countdown sensor (ending with '_countdown') or interval sensor (ending with '_intervall')")
+            return
             
         try:
-            name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_countdown", "")
+            if is_countdown:
+                name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_countdown", "")
+                countdown_entity = entity_id
+            else:  # is_interval
+                name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_intervall", "")
+                countdown_entity = f"sensor.recurring_reminders_{name_part}_countdown"
+            
             target_entry = None
             
             for entry_id, entry_data in hass.data[DOMAIN].items():
@@ -104,22 +131,77 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry_data["data"]["last_updated"] = datetime.now().isoformat()
                 await entry_data["store"].async_save(entry_data["data"])
                 
-                # Update the sensor
+                # Update the countdown sensor
                 hass.states.async_set(
-                    entity_id,
+                    countdown_entity,
                     entry_data["data"]["days_remaining"],
                     {"manually_set": datetime.now().isoformat()}
                 )
-                _LOGGER.info(f"Set reminder days to {days} for {entity_id}")
+                _LOGGER.info(f"Set reminder days to {days} for {countdown_entity}")
             else:
                 _LOGGER.error(f"Could not find reminder for entity {entity_id}")
                 
         except Exception as e:
             _LOGGER.error(f"Error setting reminder days: {e}")
     
+    async def set_reminder_interval(call: ServiceCall) -> None:
+        """Set new interval for reminder."""
+        entity_id = call.data.get("entity_id")
+        interval = call.data.get("interval")
+        
+        if not entity_id or interval is None:
+            _LOGGER.error("entity_id and interval are required for set_reminder_interval service")
+            return
+        
+        # Check if user provided countdown sensor instead of interval sensor
+        if "_countdown" in entity_id:
+            _LOGGER.error(f"Invalid entity_id: {entity_id}. Please use the interval sensor (ending with '_intervall'), not the countdown sensor (ending with '_countdown')")
+            return
+            
+        if not "_intervall" in entity_id:
+            _LOGGER.error(f"Invalid entity_id: {entity_id}. Please use the interval sensor ending with '_intervall'")
+            return
+            
+        try:
+            name_part = entity_id.replace("sensor.recurring_reminders_", "").replace("_intervall", "")
+            target_entry = None
+            
+            for entry_id, entry_data in hass.data[DOMAIN].items():
+                if entry_data["config"]["name"].lower().replace(" ", "_") == name_part:
+                    target_entry = entry_id
+                    break
+            
+            if target_entry:
+                # Update the config entry with new interval
+                entry_data = hass.data[DOMAIN][target_entry]
+                old_interval = entry_data["config"]["interval"]
+                entry_data["config"]["interval"] = int(interval)
+                
+                # Update the config entry in Home Assistant
+                config_entry = hass.config_entries.async_get_entry(target_entry)
+                hass.config_entries.async_update_entry(
+                    config_entry,
+                    data={**config_entry.data, "interval": int(interval)}
+                )
+                
+                # Update the interval sensor state
+                hass.states.async_set(
+                    entity_id,
+                    int(interval),
+                    {"old_interval": old_interval, "updated": datetime.now().isoformat()}
+                )
+                
+                _LOGGER.info(f"Updated interval for {entity_id} from {old_interval} to {interval}")
+            else:
+                _LOGGER.error(f"Could not find reminder for entity {entity_id}")
+                
+        except Exception as e:
+            _LOGGER.error(f"Error setting reminder interval: {e}")
+
     # Register services
     hass.services.async_register(DOMAIN, "reset_reminder", reset_reminder)
     hass.services.async_register(DOMAIN, "set_reminder_days", set_reminder_days)
+    hass.services.async_register(DOMAIN, "set_reminder_interval", set_reminder_interval)
     
     # Set up daily countdown update
     async def daily_update(now):
