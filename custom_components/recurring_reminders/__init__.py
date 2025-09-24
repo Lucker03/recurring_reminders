@@ -5,7 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.const import Platform
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,31 +42,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
-    # Set up daily countdown update
-    async def daily_update(now):
-        """Update countdown daily."""
+    async def midnight_countdown_update(now):
+        """Update countdown every midnight."""
+        _LOGGER.info("Running midnight countdown update for all reminders")
+        
         for entry_id, entry_data in hass.data[DOMAIN].items():
             try:
-                last_updated = datetime.fromisoformat(entry_data["data"]["last_updated"])
-                days_passed = (now.date() - last_updated.date()).days
+                current_days = entry_data["data"]["days_remaining"]
+                reminder_name = entry_data["config"]["name"]
                 
-                if days_passed > 0:
-                    current_days = entry_data["data"]["days_remaining"]
-                    new_days = max(0, current_days - days_passed)
-                    
+                # Only reduce if not already at 0
+                if current_days > 0:
+                    new_days = current_days - 1
                     entry_data["data"]["days_remaining"] = new_days
                     entry_data["data"]["last_updated"] = now.isoformat()
                     await entry_data["store"].async_save(entry_data["data"])
                     
-                    # Update sensor state
-                    entity_id = f"sensor.recurring_reminders_{entry_data['config']['name'].lower().replace(' ', '_')}_countdown"
-                    hass.states.async_set(entity_id, new_days)
+                    _LOGGER.info(f"Countdown for '{reminder_name}' updated from {current_days} to {new_days}")
+                    
+                    # Update number entity state
+                    name_normalized = reminder_name.lower().replace(" ", "_").replace("-", "_")
+                    countdown_entity_id = f"number.recurring_reminders_{name_normalized}_countdown"
+                    hass.states.async_set(countdown_entity_id, new_days)
+                else:
+                    _LOGGER.debug(f"Countdown for '{reminder_name}' stays at 0 (due)")
                     
             except Exception as e:
-                _LOGGER.error(f"Error in daily update for entry {entry_id}: {e}")
+                _LOGGER.error(f"Error in midnight update for entry {entry_id}: {e}")
     
-    # Schedule daily updates at midnight
-    async_track_time_interval(hass, daily_update, timedelta(hours=24))
+    # Schedule daily updates at midnight (00:00)
+    from homeassistant.helpers.event import async_track_time_change
+    async_track_time_change(hass, midnight_countdown_update, hour=0, minute=0, second=0)
     
     return True
 

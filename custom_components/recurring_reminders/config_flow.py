@@ -11,7 +11,9 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema({
     vol.Required("name", description="Name der Erinnerung"): str,
-    vol.Required("interval", description="Intervall in Tagen"): vol.All(vol.Coerce(int), vol.Range(min=1, max=365))
+    vol.Required("interval", description="Intervall in Tagen"): vol.All(vol.Coerce(int), vol.Range(min=1, max=365)),
+    vol.Optional("friendly_name", description="Anzeigename (optional)"): str,
+    vol.Optional("icon", description="Icon (z.B. mdi:flower)", default="mdi:bell"): str
 })
 
 async def validate_input(hass: HomeAssistant, data: dict) -> dict:
@@ -50,6 +52,8 @@ class RecurringRemindersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "name": "z.B. 'Flur saugen'",
-                "interval": "z.B. 7 für wöchentlich"
+                "interval": "z.B. 7 für wöchentlich",
+                "friendly_name": "z.B. 'Flur saugen' (wenn leer, wird Name verwendet)",
+                "icon": "z.B. mdi:vacuum, mdi:flower, mdi:car-wash"
             }
         )

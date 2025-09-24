@@ -37,8 +37,15 @@ class ReminderIntervalNumber(NumberEntity):
         self._config_entry = config_entry
         self._config = config
         self._entry_data = entry_data
-        self._attr_name = f"{config['name']} Intervall"
-        self._attr_unique_id = f"{config_entry.entry_id}_interval"
+        
+        # Use friendly_name if provided, otherwise use name
+        friendly_name = config.get("friendly_name", config["name"])
+        self._attr_name = f"{friendly_name} Intervall"
+        
+        # Create entity_id based on name (not friendly_name)
+        name_normalized = config["name"].lower().replace(" ", "_").replace("-", "_")
+        self._attr_unique_id = f"recurring_reminders_{name_normalized}_interval"
+        
         self._attr_native_unit_of_measurement = "Tage"
         self._attr_icon = "mdi:calendar-clock"
         self._attr_mode = NumberMode.BOX
@@ -49,12 +56,13 @@ class ReminderIntervalNumber(NumberEntity):
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
+        display_name = self._config.get("friendly_name", self._config["name"])
         return DeviceInfo(
             identifiers={(DOMAIN, self._config_entry.entry_id)},
-            name=f"Erinnerung: {self._config['name']}",
+            name=f"Erinnerung: {display_name}",
             manufacturer="Recurring Reminders",
             model="Reminder",
-            sw_version="1.1.0",
+            sw_version="2.1.0",
         )
 
     @property
@@ -104,10 +112,18 @@ class ReminderCountdownNumber(NumberEntity):
         self._config_entry = config_entry
         self._config = config
         self._entry_data = entry_data
-        self._attr_name = f"{config['name']} Countdown"
-        self._attr_unique_id = f"{config_entry.entry_id}_countdown"
+        
+        # Use friendly_name if provided, otherwise use name
+        friendly_name = config.get("friendly_name", config["name"])
+        self._attr_name = f"{friendly_name} Countdown"
+        
+        # Create entity_id based on name (not friendly_name) - this creates the requested format
+        name_normalized = config["name"].lower().replace(" ", "_").replace("-", "_")
+        self._attr_unique_id = f"recurring_reminders_{name_normalized}_countdown"
+        
         self._attr_native_unit_of_measurement = "Tage"
-        self._attr_icon = "mdi:timer-sand"
+        # Use custom icon if provided, otherwise use default with dynamic behavior
+        self._custom_icon = config.get("icon", "mdi:bell")
         self._attr_mode = NumberMode.BOX
         self._attr_native_min_value = 0
         self._attr_native_max_value = 365
@@ -116,12 +132,13 @@ class ReminderCountdownNumber(NumberEntity):
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
+        display_name = self._config.get("friendly_name", self._config["name"])
         return DeviceInfo(
             identifiers={(DOMAIN, self._config_entry.entry_id)},
-            name=f"Erinnerung: {self._config['name']}",
+            name=f"Erinnerung: {display_name}",
             manufacturer="Recurring Reminders",
             model="Reminder",
-            sw_version="1.1.0",
+            sw_version="2.1.0",
         )
 
     @property
@@ -159,29 +176,27 @@ class ReminderCountdownNumber(NumberEntity):
     def icon(self) -> str:
         """Return the icon based on state."""
         if self._entry_data["data"]["days_remaining"] == 0:
-            return "mdi:bell-ring"
+            # When due, use alert version or custom icon with -alert suffix
+            if self._custom_icon == "mdi:bell":
+                return "mdi:bell-ring"
+            elif "-" in self._custom_icon:
+                return f"{self._custom_icon}-alert"
+            else:
+                return f"{self._custom_icon}-alert"
         elif self._entry_data["data"]["days_remaining"] <= 1:
-            return "mdi:timer-sand-empty"
+            # When almost due, use warning version or custom icon with -outline suffix
+            if self._custom_icon == "mdi:bell":
+                return "mdi:bell-outline"
+            elif "-" in self._custom_icon:
+                return f"{self._custom_icon}-outline"
+            else:
+                return f"{self._custom_icon}-outline"
         else:
-            return "mdi:timer-sand"
+            # Normal state, use custom icon
+            return self._custom_icon
 
     async def async_update(self) -> None:
         """Update the countdown state."""
-        # Check if we need to update based on time passed
-        try:
-            last_updated = datetime.fromisoformat(self._entry_data["data"]["last_updated"])
-            now = datetime.now()
-            days_passed = (now.date() - last_updated.date()).days
-            
-            if days_passed > 0:
-                current_days = self._entry_data["data"]["days_remaining"]
-                new_days = max(0, current_days - days_passed)
-                
-                if new_days != current_days:
-                    self._entry_data["data"]["days_remaining"] = new_days
-                    self._entry_data["data"]["last_updated"] = now.isoformat()
-                    await self._entry_data["store"].async_save(self._entry_data["data"])
-                    _LOGGER.info(f"Auto-updated countdown for '{self._config['name']}' to {new_days} days")
-                
-        except Exception as e:
-            _LOGGER.error(f"Error updating countdown: {e}")
+        # The countdown is now updated automatically at midnight by the main integration
+        # This method only refreshes the current state from storage
+        pass
