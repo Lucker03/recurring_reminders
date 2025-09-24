@@ -178,9 +178,12 @@ class ReminderCountdownNumber(NumberEntity):
         name_normalized = self._config["name"].lower().replace(" ", "_").replace("-", "_")
         interval_entity_id = f"number.recurring_reminders_{name_normalized}_interval"
         
+        # Get current interval value from config entry (this reflects the current state of the interval entity)
+        current_interval = self._config_entry.data.get("interval", self._config["interval"])
+        
         attributes = {
             "reminder_name": self._config["name"],
-            "interval_days": self._config["interval"],
+            "interval_days": current_interval,
             "interval_entity_id": interval_entity_id,
             "last_updated": self._entry_data["data"]["last_updated"],
             "is_due": self._entry_data["data"]["days_remaining"] == 0
